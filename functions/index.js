@@ -2,7 +2,7 @@ const functions = require('firebase-functions');
 require("dotenv").config();
 
 const request = require('request-promise');
-const server_api_url = "http://3.141.16.91/api";
+const server_api_url = "http://3.23.86.113/api";
 // require('dotenv').config();
 
 const LINE_MESSAGING_API = 'https://api.line.me/v2/bot/message';
@@ -12,7 +12,7 @@ const LINE_HEADER = {
   'Authorization': `Bearer VffI/iUWl3LF20y5M5yr5lbp6sJl9tgyHT5TgDmEtB4S/XQ4AWzmCVI3CL7rhwBeLUcfhA+VT53KHYGUZqoVPSyb2j7l+0ANgFvQ+nMCMYA4sxOBkPmRF8NefOXfxF3aVf55UfYbSQtROkANBzDCsAdB04t89/1O/w1cDnyilFU=`,
 };
 
-exports.LineBot = functions.https.onRequest((req, res) => {
+exports.LineBot = functions.https.onRequest(async (req, res) => {
 
   // functions.logger.log("req = ", req);
   // functions.logger.log("req body = ", req.body);
@@ -22,25 +22,31 @@ exports.LineBot = functions.https.onRequest((req, res) => {
   //   userId:req.body.events[0].source.userId})
   //   res.send("hello score");
   //   return;
+    const type = req.body.events[0].message.type
+    const userId = req.body.events[0].source.userId;
+    const replyToken = req.body.events[0].replyToken;
 
-
-        if (req.body.events[0].message.type == 'text') {
-          
-          txt = message.split(" ");
+        if ( type== 'text') {
+          const message = req.body.events[0].message.text
+          const txt = message.split(" ");
           if(txt[0]=='a')
           {
+            functions.logger.log("message type text a ");
             // get audio
             a = parseInt(txt[1])
             if(a>=1 && a<=10)
             {
-              audioFile = getAudioTrack({
-                // replyToken: req.body.events[0].replyToken,
-                userId: req.body.event[0].source.userId,
+              const audioFile = await getAudioTrack({
+                userId: userId,
                 audioNumber:a,
               })
+              functions.logger.log("valid a",a);
               replyAudio({
-                replyToken:req.body.events[0].replyToken,
-                originalContentUrl: audioFile.audioUrl})
+                replyToken:replyToken,
+                originalContentUrl: "https://line-data-cloud.s3.us-east-2.amazonaws.com/1.m4a",
+                // originalContentUrl: audioFile.originalContentUrl,
+              })
+              return;
             }
             else  {
               res.send("hello 1-10");
@@ -56,16 +62,23 @@ exports.LineBot = functions.https.onRequest((req, res) => {
 
           }
             reply(req.body);
-        }else if(req.body.events[0].message.type == 'audio'){
+        }else if(type == 'audio'){
           // TODO: Check score 
           functions.logger.log("message type audio ");
-            const scoreBoard = getScore({
+
+
+          // await getAudioTrack({userId:userId,audioNumber:1});
+
+            const scoreBoard = await getScore({
               messageId:req.body.events[0].message.id,
-              userId:req.body.event[0].source.userId})
+              userId:req.body.events[0].source.userId
+            })
               functions.logger.log("scoreBoard ",scoreBoard);
-            reply(req.body,"Your score is ...");
-            replyScoreBoard({...scoreBoard,replyToken:req.body.events[0].replyToken })
-            // replyAudio(req.body);
+            const scoreJson = JSON.parse(scoreBoard) ;
+              reply(req.body,"Score: "+scoreJson.score+"\n Transcription: "+scoreJson.transcription);
+              reply(req.body,"Your score is ...");
+            // replyScoreBoard({...scoreBoard,replyToken:replyToken })
+            return;
         }
         else {
             res.send("hello else");
@@ -77,20 +90,21 @@ exports.LineBot = functions.https.onRequest((req, res) => {
     // reply(req.body);
 });
 
-const getAudioTrack = (bodyResponse) => {
+const getAudioTrack = async(body) => {
   return request({
     method: `POST`,
     uri: `${server_api_url}/audio`,
     headers: LINE_HEADER,
     body: JSON.stringify({
-          userId: bodyResponse.userId,
-          audioNumber:bodyResponse.audioNumber,
+          userId: body.userId,
+          audioNumber:body.audioNumber,
     }),
   });
 };
 
-const getScore = (bodyResponse) => {
-  return request({
+
+const getScore = async (bodyResponse) => {
+  return await request({
     method: `POST`,
     uri: `${server_api_url}/score`,
     headers: LINE_HEADER,
@@ -111,6 +125,25 @@ const getScoreBoard = (bodyResponse) => {
     }),
   });
 };
+const replyAudio = (bodyResponse) => {
+  return request({
+    method: `POST`,
+    uri: `${LINE_MESSAGING_API}/reply`,
+    headers: LINE_HEADER,
+    body: JSON.stringify({
+      replyToken: bodyResponse.replyToken,
+      messages: [
+        {
+          type: `audio`,
+          // originalContentUrl: `${LINE_DATA}/${bodyResponse.events[0].message.id}/content`,
+          // originalContentUrl:"https://line-data-cloud.s3.us-east-2.amazonaws.com/1.m4a",
+          originalContentUrl:bodyResponse.originalContentUrl,
+          duration: 60000
+        },
+      ],
+    }),
+  });
+};
 
 const replyScoreBoard = (bodyResponse) => {
   return request({
@@ -118,7 +151,7 @@ const replyScoreBoard = (bodyResponse) => {
     uri: `${LINE_MESSAGING_API}/reply`,
     headers: LINE_HEADER,
     body: JSON.stringify({
-      replyToken: bodyResponse.events[0].replyToken,
+      replyToken: bodyResponse.replyToken,
       messages: [
         {
           type: `flex`,
@@ -257,24 +290,7 @@ const reply = (bodyResponse,text) => {
     }),
   });
 };
-const replyAudio = (bodyResponse) => {
-  return request({
-    method: `POST`,
-    uri: `${LINE_MESSAGING_API}/reply`,
-    headers: LINE_HEADER,
-    body: JSON.stringify({
-      replyToken: bodyResponse.events[0].replyToken,
-      messages: [
-        {
-          type: `audio`,
-          // originalContentUrl: `${LINE_DATA}/${bodyResponse.events[0].message.id}/content`,
-          originalContentUrl:"https://line-data-cloud.s3.us-east-2.amazonaws.com/test.m4a",
-          duration: 60000
-        },
-      ],
-    }),
-  });
-};
+
 // const replyAudio = (bodyResponse) => {
 //     return request({
 //       method: `POST`,

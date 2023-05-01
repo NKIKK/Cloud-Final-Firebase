@@ -102,16 +102,16 @@ functions.http('LineBot',async (req, res) => {
               console.log("score ",score);
             const scoreJson = JSON.parse(score) ;
             
-            const res = await getScoreBoard({audioNumber:parseInt(scoreJson.audioNumber),})
-            const resJson = JSON.parse(res)
-            await replyScoreAndScoreBoard({
-                ranking:resJson,
-                userId:userId,
-                replyToken:replyToken,
-                audioNumber:parseInt(scoreJson.audioNumber),
-                score:scoreJson.score,
-                transcription:scoreJson.transcription
-            })
+            // const res = await getScoreBoard({audioNumber:parseInt(scoreJson.audioNumber),})
+            // const resJson = JSON.parse(res)
+            // await replyScoreAndScoreBoard({
+            //     ranking:resJson,
+            //     userId:userId,
+            //     replyToken:replyToken,
+            //     audioNumber:parseInt(scoreJson.audioNumber),
+            //     score:scoreJson.score,
+            //     transcription:scoreJson.transcription
+            // })
             
             //   reply(req.body,"Score: "+scoreJson.score+"\n Transcription: "+scoreJson.transcription);
             //   reply(req.body,"Your score is ...");
@@ -149,6 +149,7 @@ const getScore = async (bodyResponse) => {
     body: JSON.stringify({
           userId: bodyResponse.userId,
           messageId:bodyResponse.messageId,
+          replyToken:bodyResponse.replyToken,
     }),
   });
 };

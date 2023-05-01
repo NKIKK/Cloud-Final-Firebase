@@ -40,13 +40,23 @@ exports.LineBot = functions.https.onRequest(async (req, res) => {
                 userId: userId,
                 audioNumber:a,
               })
+              const audioJson = JSON.parse(audioFile);
               functions.logger.log("valid a",a);
+            functions.logger.log("audioFile",audioFile);
+            try {
               replyAudio({
                 replyToken:replyToken,
-                originalContentUrl: "https://line-data-cloud.s3.us-east-2.amazonaws.com/1.m4a",
-                // originalContentUrl: audioFile.originalContentUrl,
+                // originalContentUrl: "https://line-data-cloud.s3.us-east-2.amazonaws.com/1.m4a",
+                originalContentUrl: audioJson.audioUrl,
               })
-              return;
+            functions.logger.log("audioJson.audioUrl",audioJson.audioUrl);
+
+            }catch(err){
+            functions.logger.log("catch replyAudio",err);
+
+            }
+              
+              // return;
             }
             else  {
               res.send("hello 1-10");
@@ -90,7 +100,7 @@ exports.LineBot = functions.https.onRequest(async (req, res) => {
     // reply(req.body);
 });
 
-const getAudioTrack = async(body) => {
+const getAudioTrack = (body) => {
   return request({
     method: `POST`,
     uri: `${server_api_url}/audio`,
@@ -136,8 +146,8 @@ const replyAudio = (bodyResponse) => {
         {
           type: `audio`,
           // originalContentUrl: `${LINE_DATA}/${bodyResponse.events[0].message.id}/content`,
-          // originalContentUrl:"https://line-data-cloud.s3.us-east-2.amazonaws.com/1.m4a",
-          originalContentUrl:bodyResponse.originalContentUrl,
+          originalContentUrl:"https://line-data-cloud.s3.us-east-2.amazonaws.com/1.m4a",
+          // originalContentUrl:bodyResponse.originalContentUrl,
           duration: 60000
         },
       ],

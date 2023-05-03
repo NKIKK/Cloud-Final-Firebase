@@ -3,7 +3,7 @@ const { user } = require('firebase-functions/v1/auth');
 require("dotenv").config();
 
 const request = require('request-promise');
-const server_api_url = "http://18.221.215.103/api";
+const server_api_url = "http://18.224.108.39/api";
 // require('dotenv').config();
 
 const LINE_MESSAGING_API = 'https://api.line.me/v2/bot/message';
@@ -18,11 +18,7 @@ functions.http('LineBot',async (req, res) => {
   // functions.logger.log("req = ", req);
   // functions.logger.log("req body = ", req.body);
   console.log("req  events = ", req.body.events);
-  // const scoreBoard = getScore({
-  //   messageId:req.body.events[0].message.id,
-  //   userId:req.body.events[0].source.userId})
-  //   res.send("hello score");
-  //   return;
+  
     const type = req.body.events[0].message.type
     const userId = req.body.events[0].source.userId;
     const replyToken = req.body.events[0].replyToken;
@@ -30,13 +26,7 @@ functions.http('LineBot',async (req, res) => {
         if ( type== 'text') {
           const message = req.body.events[0].message.text
           const txt = message.split(" ");
-        //   if (message=="all")
-        //   {
-        //     replyAllScoreBoard({
-        //         replyToken:replyToken
-        //     })
-        //   }
-        //   else 
+        
           if(txt[0]=='a')
           {
             console.log("message type text a ");
@@ -78,7 +68,8 @@ functions.http('LineBot',async (req, res) => {
             {
                 const res = await getScoreBoard({audioNumber:a,})
                 const resJson = JSON.parse(res)
-               
+                console.log("scoreboard s")
+               console.log(resJson)
                 await replyScoreBoard({
                     ranking:resJson,
                     userId:userId,
@@ -86,15 +77,24 @@ functions.http('LineBot',async (req, res) => {
                     audioNumber:a,
 
                 })
-            }else return;
+            }
+            return;
 
-          }
+          }else if(txt[0]=='c')
+            {
+                const jobName = txt[1]
+                await requestJobProgress({
+                    userId: userId,
+                    jobName:jobName,
+                    replyToken:replyToken
+                })
+            }else
             reply(req.body);
         }else if(type == 'audio'){
           // TODO: Check score 
           console.log("message type audio ");
 
-            const score = await getScore({
+            const score = await submitAudio({
                 replyToken:replyToken,
               messageId:req.body.events[0].message.id,
               userId:req.body.events[0].source.userId,
@@ -102,20 +102,6 @@ functions.http('LineBot',async (req, res) => {
               console.log("score ",score);
             const scoreJson = JSON.parse(score) ;
             
-            // const res = await getScoreBoard({audioNumber:parseInt(scoreJson.audioNumber),})
-            // const resJson = JSON.parse(res)
-            // await replyScoreAndScoreBoard({
-            //     ranking:resJson,
-            //     userId:userId,
-            //     replyToken:replyToken,
-            //     audioNumber:parseInt(scoreJson.audioNumber),
-            //     score:scoreJson.score,
-            //     transcription:scoreJson.transcription
-            // })
-            
-            //   reply(req.body,"Score: "+scoreJson.score+"\n Transcription: "+scoreJson.transcription);
-            //   reply(req.body,"Your score is ...");
-            // replyScoreBoard({...scoreBoard,replyToken:replyToken })
             return;
         }
         else {
@@ -127,6 +113,18 @@ functions.http('LineBot',async (req, res) => {
         // 
     // reply(req.body);
 });
+const requestJobProgress = (body) =>{
+    return request({
+        method: `POST`,
+        uri: `${server_api_url}/score`,
+        headers: LINE_HEADER,
+        body: JSON.stringify({
+              userId: body.userId,
+            jobName:body.jobName,
+            replyToken:body.replyToken
+        }),
+      });
+}
 
 const getAudioTrack = (body) => {
   return request({
@@ -140,11 +138,90 @@ const getAudioTrack = (body) => {
   });
 };
 
+    
+  const replyProgress = (body)=>{
+    const content = {
+    type: "flex",
+    altText: "This is your progress",
+    contents: 
+    {
+        "type": "bubble",
+        "body": {
+          "type": "box",
+          "layout": "vertical",
+          "contents": [
+            {
+              "type": "text",
+              "text": "สถานะ",
+              "weight": "bold",
+              "color": "#1DB446",
+              "size": "sm"
+            },
+            {
+              "type": "text",
+              "text": "IN PROGRESS",
+              "weight": "bold",
+              "size": "xl"
+            },
+            {
+              "type": "text",
+              "text": `#${body.jobName}`,
+              "color": "#aaaaaa"
+            },
+            {
+              "type": "text",
+              "text": "กรุณารอสักครู่ ระบบกำลังฟังที่ท่านพูดมาล่าสุดและคิดคะแนน",
+              "wrap": true,
+              "margin": "lg"
+            },
+            {
+              "type": "text",
+              "text": "กดปุ่มด้านล่างเพื่อดูสถานะ",
+              "margin": "lg"
+            }
+          ]
+        },
+        "footer": {
+          "type": "box",
+          "layout": "vertical",
+          "spacing": "sm",
+          "contents": [
+            {
+              "type": "button",
+              "style": "secondary",
+              "height": "sm",
+              "action": {
+                "type": "message",
+                "label": "CHECK",
+                "text": `c ${body.jobName}`
+              }
+            }
+          ],
+          "flex": 0
+        }
+      }
+    };
+    return request({
+        method: `POST`,
+        uri: `${LINE_MESSAGING_API}/reply`,
+        headers: LINE_HEADER,
+        body: JSON.stringify({
+          replyToken: body.replyToken,
+          messages: [
+            content
+          ],
+        }),
+      });
+}
 
-const getScore = async (bodyResponse) => {
+
+
+
+
+const submitAudio = async (bodyResponse) => {
   return await request({
     method: `POST`,
-    uri: `${server_api_url}/score`,
+    uri: `${server_api_url}/submit`,
     headers: LINE_HEADER,
     body: JSON.stringify({
           userId: bodyResponse.userId,
@@ -399,27 +476,7 @@ const allScoreBoardJson = async()=>{
     }
     
 }
-const replyAllScoreBoard = (body)=>{
-    const all_scoreboard_json = allScoreBoardJson();
-    return request({
-        method: `POST`,
-        uri: `${LINE_MESSAGING_API}/reply`,
-        headers: LINE_HEADER,
-        body: JSON.stringify({
-          replyToken: body.replyToken,
-          messages: [
-            {
-              type: `flex`,
-              altText: "This is your result",
-                contents: 
-                {
-                    all_scoreboard_json
-                }
-            },
-          ],
-        }),
-      });
-}
+
 const yourTranscriptionJson = (transcription)=>{
     return {
         "type": "bubble",

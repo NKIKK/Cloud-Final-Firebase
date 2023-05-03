@@ -4,13 +4,13 @@ require("dotenv").config();
 
 const request = require('request-promise');
 const server_api_url = "http://18.224.108.39/api";
-// require('dotenv').config();
+require('dotenv').config();
 
 const LINE_MESSAGING_API = 'https://api.line.me/v2/bot/message';
 const LINE_DATA = 'https://api-data.line.me/v2/bot/message';
 const LINE_HEADER = {
   'Content-Type': 'application/json',
-  'Authorization': `Bearer VffI/iUWl3LF20y5M5yr5lbp6sJl9tgyHT5TgDmEtB4S/XQ4AWzmCVI3CL7rhwBeLUcfhA+VT53KHYGUZqoVPSyb2j7l+0ANgFvQ+nMCMYA4sxOBkPmRF8NefOXfxF3aVf55UfYbSQtROkANBzDCsAdB04t89/1O/w1cDnyilFU=`,
+  'Authorization': `Bearer ${process.env.CHANNEL_ACCESS_TOKEN} `
 };
 
 functions.http('LineBot',async (req, res) => {
